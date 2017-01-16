@@ -23,7 +23,7 @@ from pybuilder.pip_utils import pip_install
 use_plugin("pypi:karellen_pyb_plugin", ">=0.0.1.dev")
 
 name = "karellen-sqlite"
-version = "0.0.3.dev"
+version = "0.0.3"
 
 url = "https://github.com/karellen/karellen-sqlite"
 description = "Please visit %s for more information!" % url
