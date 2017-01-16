@@ -16,5 +16,5 @@
 # limitations under the License.
 #
 
-from sqlite3 import *  # noqa
+from sqlite3.dbapi2 import *  # noqa
 from karellen.sqlite3._sqlite import connect, Connection, UpdateHookOps  # noqa
