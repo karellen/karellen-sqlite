@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-from sqlite3 import Connection as Sqlite3Connection
+from sqlite3 import Connection as Sqlite3Connection, IntegrityError
 from unittest import TestCase
 
 from karellen.sqlite3._sqlite import Connection as KarellenConnection
@@ -24,7 +24,7 @@ from pysqlite2.dbapi2 import connect, UpdateHookOps
 
 
 class UpdateHookTests(TestCase):
-    def test_update_hook_set(self):
+    def test_update_hook(self):
         hook_ex = Exception("hook goes boom")
 
         def hook(conn, op, db_name, table_name, rowid):
@@ -39,16 +39,71 @@ class UpdateHookTests(TestCase):
 
         with connect(':memory:') as conn:
             self.assertIsNone(conn.set_update_hook(hook))
+            conn._last_hook_error = AssertionError("hook didn't run")
             conn.execute("CREATE TABLE a (int id);")
             conn.execute("INSERT INTO a VALUES (1);")
-            if conn.last_update_hook_error():
-                raise conn.last_update_hook_error()
+            if conn.last_hook_error():
+                raise conn.last_hook_error()
 
             self.assertIs(conn.set_update_hook(error_hook), hook)
             conn.execute("INSERT INTO a VALUES (2);")
-            self.assertIs(conn.last_update_hook_error(), hook_ex)
+            self.assertIs(conn.last_hook_error(), hook_ex)
             self.assertIs(conn.set_update_hook(), error_hook)
-            self.assertIsNone(conn.last_update_hook_error())
+            self.assertIsNone(conn.last_hook_error())
+
+    def test_commit_hook(self):
+        hook_ex = Exception("hook goes boom")
+
+        def hook(conn):
+            self.assertTrue(isinstance(conn, KarellenConnection))
+
+        def error_hook(conn):
+            raise hook_ex
+
+        with connect(':memory:') as conn:
+            conn.execute("CREATE TABLE a (int id);")
+            conn.isolation_level = None
+            self.assertIsNone(conn.set_commit_hook(hook))
+            conn._last_hook_error = AssertionError("hook didn't run")
+            conn.execute("INSERT INTO a VALUES (1);")
+            if conn.last_hook_error():
+                raise conn.last_hook_error()
+
+            self.assertIs(conn.set_commit_hook(error_hook), hook)
+            with self.assertRaises(IntegrityError):
+                conn.execute("INSERT INTO a VALUES (2);")
+
+            self.assertIs(conn.last_hook_error(), hook_ex)
+
+            self.assertIs(conn.set_commit_hook(), error_hook)
+            self.assertIsNone(conn.last_hook_error())
+
+    def test_rollback_hook(self):
+        hook_ex = Exception("hook goes boom")
+
+        def hook(conn):
+            self.assertTrue(isinstance(conn, KarellenConnection))
+
+        def error_hook(conn):
+            raise hook_ex
+
+        with connect(':memory:') as conn:
+            conn.execute("CREATE TABLE a (int id);")
+            conn.isolation_level = ""
+            self.assertIsNone(conn.set_rollback_hook(hook))
+            conn._last_hook_error = AssertionError("hook didn't run")
+            conn.execute("INSERT INTO a VALUES (1);")
+            conn.rollback()
+            if conn.last_hook_error():
+                raise conn.last_hook_error()
+
+            self.assertIs(conn.set_rollback_hook(error_hook), hook)
+            conn.execute("INSERT INTO a VALUES (2);")
+            conn.rollback()
+            self.assertIs(conn.last_hook_error(), hook_ex)
+
+            self.assertIs(conn.set_rollback_hook(), error_hook)
+            self.assertIsNone(conn.last_hook_error())
 
     def test_factory_can_be_overwritten(self):
         with connect(':memory:', factory=Sqlite3Connection) as conn:

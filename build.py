@@ -44,6 +44,7 @@ def set_properties(project: Project):
 
     # Dependencies
     project.build_depends_on("karellen-testing", ">=0.0.1dev")
+    project.build_depends_on("gevent", "~=1.2.0")
 
     # Cram Configuration
     project.set_property("cram_fail_if_no_tests", False)
