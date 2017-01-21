@@ -16,10 +16,28 @@
 # limitations under the License.
 #
 
-from sqlite3.dbapi2 import *  # noqa
-from karellen.sqlite3._sqlite import connect, Connection, UpdateHookOps  # noqa
+from gevent.monkey import patch_all
 
-try:
-    from karellen.sqlite3._gevent import gevent_patch  # noqa
-except ImportError:  # pragma: no cover
-    pass
+patch_all(aggressive=True, Event=True)
+
+from karellen.sqlite3 import gevent_patch
+
+gevent_patch()
+
+from unittest import TestCase
+
+from pysqlite2 import connect
+
+class UpdateHookTests(TestCase):
+    def connect(self):
+        conn = connect("db.sqlite3", check_same_thread=False, isolation_level=None)
+        conn.execute("PRAGMA journal_mode=wal")
+        return conn
+
+    def test_concurrent_read(self):
+        with self.connect() as conn:
+            conn.execute("CREATE TABLE a (int x)")
+            conn.execute("CREATE TABLE b (int y)")
+
+
+
